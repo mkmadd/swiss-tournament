@@ -15,7 +15,7 @@ def connect(dbname='tournament'):
         conn = psycopg2.connect("dbname={}".format(dbname))
     except psycopg2.OperationalError, e:
         print e
-        return None
+        return None, None
     cursor = conn.cursor()
     return conn, cursor
     
