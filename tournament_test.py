@@ -258,6 +258,7 @@ def testPairings():
 
 
 if __name__ == '__main__':
+    clearAll()
     testDeleteMatches()
     testDelete()
     testCount()

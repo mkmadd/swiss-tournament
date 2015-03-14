@@ -8,24 +8,25 @@ from binning_and_graph_construction import get_pairs
 
 BYE = 1         # player id for bye is 1
 
-def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
+
+def connect(dbname='tournament'):
+    """Connect to the PostgreSQL database, returning a connection and cursor."""
     try:
-        conn = psycopg2.connect("dbname=tournament")
+        conn = psycopg2.connect("dbname={}".format(dbname))
     except psycopg2.OperationalError, e:
         print e
         return None
-    return conn
+    cursor = conn.cursor()
+    return conn, cursor
     
     
 def clearAll():
     """Drop all tables and reset with tournament.sql"""
-    conn = connect()
-    cursor = conn.cursor()
-    cursor.execute("DROP TABLE players CASCADE;")
-    cursor.execute("DROP TABLE tournaments CASCADE;")
-    cursor.execute("DROP TABLE tournament_players CASCADE;")
-    cursor.execute("DROP TABLE matches CASCADE;")
+    conn, cursor = connect()
+    cursor.execute("DROP TABLE IF EXISTS players CASCADE;")
+    cursor.execute("DROP TABLE IF EXISTS tournaments CASCADE;")
+    cursor.execute("DROP TABLE IF EXISTS tournament_players CASCADE;")
+    cursor.execute("DROP TABLE IF EXISTS matches CASCADE;")
     cursor.execute(open("tournament.sql", "r").read())
     conn.commit()
     conn.close()
@@ -33,8 +34,7 @@ def clearAll():
 
 def deleteMatches():
     """Remove all match records from the database."""
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("DELETE FROM matches;")
     conn.commit()
     conn.close()
@@ -43,8 +43,7 @@ def deleteMatches():
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("DELETE FROM players WHERE id <> 1;")
     conn.commit()
     conn.close()
@@ -52,8 +51,7 @@ def deletePlayers():
 
 def deleteTournaments():
     """Remove all tournament records from the database."""
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("DELETE FROM tournaments CASCADE;")
     conn.commit()
     conn.close()
@@ -61,8 +59,7 @@ def deleteTournaments():
 
 def countPlayers():
     """Returns the number of players currently registered."""
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("SELECT COUNT(*) AS num FROM players WHERE id <> 1;")
     num = cursor.fetchall()
     conn.close()
@@ -81,8 +78,7 @@ def registerPlayer(name):
     Returns:
       int: id of the player just added
     """
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     query = """INSERT INTO players (name) VALUES(%s) RETURNING id;"""
     cursor.execute(query, [name])
     id = cursor.fetchone()[0]
@@ -99,8 +95,7 @@ def getTournaments():
         id: the tournament id
         name: the tournament name
     """
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("SELECT * FROM tournaments;")
     tournaments = cursor.fetchall()
     conn.close()
@@ -117,8 +112,7 @@ def getTournamentByName(name):
         id: tournament id matching name
         name: name
     """
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("SELECT * FROM tournaments WHERE name = %s;", [name])
     tournaments = cursor.fetchall()
     conn.close()
@@ -133,8 +127,7 @@ def getTournamentById(id):
         id: tournament id matching name
         name: name
     """
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("SELECT * FROM tournaments WHERE id = %s;", [id])
     tournaments = cursor.fetchone()
     conn.close()
@@ -147,8 +140,7 @@ def getByeId():
     Returns:
       int: id used to represent a bye
     """
-    conn = connect()
-    cursor = conn.cursor()
+    conn, cursor = connect()
     cursor.execute("SELECT id FROM players WHERE name = 'bye';")
     id = cursor.fetchone()[0]
     conn.close()
@@ -189,8 +181,7 @@ class Tournament():
         Args:
           name: the tournament name (need not be unique).
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """INSERT INTO tournaments (name) VALUES(%s) RETURNING id;"""
         cursor.execute(query, [self.name])
         self.id = cursor.fetchone()[0]
@@ -204,8 +195,7 @@ class Tournament():
            If tournament id is specified, delete all matches for that 
            tournament, else delete all matches for all tournaments.
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         cursor.execute("DELETE FROM matches WHERE tournament = %s;", [self.id])
         conn.commit()
         conn.close()
@@ -217,8 +207,7 @@ class Tournament():
         Returns:
           int: number of players in entered in this tournament
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """SELECT COUNT(*) AS num
                    FROM tournament_players
                    WHERE tournament = %s;
@@ -235,8 +224,7 @@ class Tournament():
         Args:
           player_id: id of the player to be added
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """INSERT INTO tournament_players (tournament, player) 
                    VALUES(%s, %s);
                 """
@@ -251,8 +239,7 @@ class Tournament():
         Args:
           player_id: id of the player to be removed
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """DELETE FROM tournament_players
                    WHERE tournament = %s AND player = %s;
                 """
@@ -277,8 +264,7 @@ class Tournament():
             draws: the number of matches the player has drawn
             losses: the number of matches the player has lost
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """SELECT id, name, wins, draws, losses
                     FROM get_standings_from_tourn(%s)
                     LEFT JOIN get_opponent_points_from_tourn(%s)
@@ -298,8 +284,7 @@ class Tournament():
           loser:  the id number of the player who lost
           draw: Whether match was a draw, default is false
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """INSERT INTO matches (tournament, winner, loser, draw) 
                    VALUES (%s, %s, %s, %s);"""
         cursor.execute(query, [self.id, winner, loser, draw])
@@ -339,8 +324,7 @@ class Tournament():
             id2: the second player's unique id
             name2: the second player's name
         """
-        conn = connect()
-        cursor = conn.cursor()
+        conn, cursor = connect()
         query = """SELECT * FROM get_info_for_pairing_from_tourn(%s);"""
         cursor.execute(query, [self.id])
         pairing_info = cursor.fetchall()
